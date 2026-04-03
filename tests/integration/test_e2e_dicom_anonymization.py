@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 niffler_modules_path = Path.cwd() / 'modules'
-dicom_anon_path = niffler_modules_path / 'dicom-anonymization'
+dicom_anon_path = niffler_modules_path / 'dicom_anonymization'
 sys.path.append(str(dicom_anon_path))
 import DicomAnonymizer as DCMAnon
 
@@ -15,8 +15,8 @@ class Config(object):
     """
     Config object for DicomAnonymizer tests
     """
-    input_dir = pytest.data_dir / 'dicom-anonymization' / 'input'
-    output_dir = pytest.out_dir / 'dicom-anonymization' / 'output'
+    input_dir = pytest.data_dir / 'dicom_anonymization' / 'input'
+    output_dir = pytest.out_dir / 'dicom_anonymization' / 'output'
 
     def __init__(self):
         pytest.create_dirs(

@@ -11,3 +11,14 @@ htmlcov
 coverage.xml
 **/*.log
 /tests/data
+
+# Python environment artifacts
+venv/
+
+# Python packaging artifacts
+*.egg-info/
+dist/
+
+# Anonymization runtime outputs
+**/UIDs.pkl
+**/skipped.pkl

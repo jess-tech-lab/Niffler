@@ -74,7 +74,7 @@ def modality_grouping():
 def dicom_anonymization():
     # DICOM Anonymization
     logging.info('Starting DICOM Anonymization')
-    DICOM_ANON_FOLDER = '../dicom-anonymization/'
+    DICOM_ANON_FOLDER = '../dicom_anonymization/'
     sys.path.append(DICOM_ANON_FOLDER)
     os.chdir(DICOM_ANON_FOLDER)
     import DicomAnonymizer2

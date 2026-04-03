@@ -8,3 +8,4 @@ numpy
 pandas
 pillow
 pypng
+typing_extensions
