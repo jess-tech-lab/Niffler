@@ -1,17 +1,23 @@
 import os
 import sys
 import pydicom
+import pydicom.valuerep as pydicom_types
 import random
 import glob
 import pathlib
 import pickle
 import string
-import random 
+import random
+try:
+    from warnings import deprecated          # Python 3.13+
+except ImportError:
+    from typing_extensions import deprecated # Python 3.12 and below
 
 def get_dcm_paths(dcm_root_dir):
     paths = glob.glob(os.path.join(dcm_root_dir, "**/*.dcm"), recursive=True)
     return paths
 
+@deprecated("randomizeID() is deprecated; use pydicom.uid.generate_uid() directly.")
 def randomizeID(id):
     string = str(id)
     splits = string.split('.')
@@ -37,13 +43,24 @@ def anonSample(file, idtype, dict):
         if idtype == 'PatientID':
             anon_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(25))
         else:
-            anon_id = randomizeID(id)
+            # Generate a fully compliant, fresh DICOM UID instead of mutating the original.
+            anon_id = str(pydicom.uid.generate_uid())
+
         # make sure that the new ID isn't the same as another
         while anon_id in dict.values():
-            anon_id = randomizeID(id)
+            if idtype == 'PatientID':
+                anon_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(25))
+            else:
+                anon_id = str(pydicom.uid.generate_uid())
         dict[id] = anon_id
 
     return anon_id
+
+
+def _stamp_deidentified(ds, method="Niffler Basic Profile"):
+    """Add DICOM de-identification markers (DICOM PS 3.15)."""
+    ds.PatientIdentityRemoved = "YES"
+    ds.DeidentificationMethod = method
 
 
 def dcm_anonymize(dcm_files, output_path, stop=None):
@@ -95,11 +112,14 @@ def dcm_anonymize(dcm_files, output_path, stop=None):
                         dcm_file.data_element(tag).value = 'N/A'
                     elif type(dcm_file.data_element(tag).value) == int:
                         dcm_file.data_element(tag).value = 0
+                    elif type(dcm_file.data_element(tag).value) == pydicom_types.PersonName:
+                        dcm_file.data_element(tag).value = 'N/A'
                     else:
                         dcm_file.data_element(tag).value = 0.0
                 
-                pathlib.Path("/".join(out_path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
-                dcm_file.save_as(out_path)
+            _stamp_deidentified(dcm_file)
+            pathlib.Path("/".join(out_path.split("/")[:-1])).mkdir(parents=True, exist_ok=True)
+            dcm_file.save_as(out_path)
             n += 1
         except:
             print('Invalid Dicom Error, skipping')
@@ -107,11 +127,17 @@ def dcm_anonymize(dcm_files, output_path, stop=None):
             skipped.append((skip_file.AccessionNumber, skip_file.StudyInstanceUID))
             continue
         if n == stop or n == len(dcm_files):
-            pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-            exit()
+            with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+                pickle.dump(UIDs, f)
+            with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+                pickle.dump(skipped, f)
+            print('anonymized {} samples, exiting.'.format(n), flush=True)
+            return
 
-        pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-        pickle.dump(skipped, open(os.path.join(output_path, "skipped.pkl"), "wb"))
+        with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+            pickle.dump(UIDs, f)
+        with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+            pickle.dump(skipped, f)
 
 
 if __name__ == "__main__":

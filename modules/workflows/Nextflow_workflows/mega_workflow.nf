@@ -91,7 +91,7 @@ process dicomAnon{
 		params.workflow==1 || params.workflow==3 || params.workflow==5 || params.workflow==7
 	script:
 	"""
-		python3 $pd/../../dicom-anonymization/DicomAnonymizer2.py $params.OutputDirectory/workflow_results/cold_extraction_results $params.OutputDirectory/workflow_results/DicomAnon_resuts
+		python3 $pd/../../dicom_anonymization/DicomAnonymizer2.py $params.OutputDirectory/workflow_results/cold_extraction_results $params.OutputDirectory/workflow_results/DicomAnon_resuts
 	"""
 }
 

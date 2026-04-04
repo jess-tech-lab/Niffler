@@ -14,6 +14,10 @@ import glob
 import pathlib
 import pickle
 import pydicom.valuerep as pydicom_types
+try:
+    from warnings import deprecated          # Python 3.13+
+except ImportError:
+    from typing_extensions import deprecated # Python 3.12 and below
 
 def get_dcm_folders(dcm_root_dir):
     # get all folders
@@ -37,6 +41,7 @@ def get_dcm_folders(dcm_root_dir):
 
 
 # randomly anonymizes the input id
+@deprecated("randomizeID() is deprecated; use pydicom.uid.generate_uid() directly.")
 def randomizeID(id):
     string = str(id)
     splits = string.split('.')
@@ -61,13 +66,20 @@ def anonSample(file, idtype, dict):
     if id in dict.keys():
         anon_id = dict[id]
     else:
-        anon_id = randomizeID(id)
+        # Generate a fully compliant, fresh DICOM UID instead of mutating the original.
+        anon_id = str(pydicom.uid.generate_uid())
         # make sure that the new ID isn't the same as another
         while anon_id in dict.values():
-            anon_id = randomizeID(id)
+            anon_id = str(pydicom.uid.generate_uid())
         dict[id] = anon_id
 
     return anon_id
+
+
+def _stamp_deidentified(ds, method="Niffler Basic Profile"):
+    """Add DICOM de-identification markers (DICOM PS 3.15)."""
+    ds.PatientIdentityRemoved = "YES"
+    ds.DeidentificationMethod = method
 
 
 def dcm_anonymize(dcm_folders, output_path, stop=None):
@@ -129,6 +141,7 @@ def dcm_anonymize(dcm_folders, output_path, stop=None):
                             dcm_file.data_element(tag).value = 'N/A'
                         else: 
                             dcm_file.data_element(tag).value = 0.0
+                _stamp_deidentified(dcm_file)
                 dcm_file.save_as(os.path.join(study_folder, new_filename + '.dcm'))
             n += 1
             print('total folders anonymized: {}/{}. Study: {}'.format(n, len(dcm_folders), study_folder), flush=True)
@@ -138,12 +151,17 @@ def dcm_anonymize(dcm_folders, output_path, stop=None):
             skipped.append((skip_file.AccessionNumber, skip_file.StudyInstanceUID))
             continue
         if n == stop or n == len(dcm_folders):
-            pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-            print('anonymized {} samples, exiting.'.format(stop), flush=True)
-            exit()
+            with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+                pickle.dump(UIDs, f)
+            with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+                pickle.dump(skipped, f)
+            print('anonymized {} samples, exiting.'.format(n), flush=True)
+            return
 
-        pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-        pickle.dump(skipped, open(os.path.join(output_path, "skipped.pkl"), "wb"))
+        with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+            pickle.dump(UIDs, f)
+        with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+            pickle.dump(skipped, f)
 
 
 if __name__ == "__main__":
