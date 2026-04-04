@@ -1,6 +1,7 @@
 import os
 import sys
 import pydicom
+import pydicom.valuerep as pydicom_types
 import random
 import glob
 import pathlib
@@ -44,9 +45,13 @@ def anonSample(file, idtype, dict):
         else:
             # Generate a fully compliant, fresh DICOM UID instead of mutating the original.
             anon_id = str(pydicom.uid.generate_uid())
+
         # make sure that the new ID isn't the same as another
         while anon_id in dict.values():
-            anon_id = str(pydicom.uid.generate_uid())
+            if idtype == 'PatientID':
+                anon_id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(25))
+            else:
+                anon_id = str(pydicom.uid.generate_uid())
         dict[id] = anon_id
 
     return anon_id
@@ -107,6 +112,8 @@ def dcm_anonymize(dcm_files, output_path, stop=None):
                         dcm_file.data_element(tag).value = 'N/A'
                     elif type(dcm_file.data_element(tag).value) == int:
                         dcm_file.data_element(tag).value = 0
+                    elif type(dcm_file.data_element(tag).value) == pydicom_types.PersonName:
+                        dcm_file.data_element(tag).value = 'N/A'
                     else:
                         dcm_file.data_element(tag).value = 0.0
                 
@@ -120,11 +127,17 @@ def dcm_anonymize(dcm_files, output_path, stop=None):
             skipped.append((skip_file.AccessionNumber, skip_file.StudyInstanceUID))
             continue
         if n == stop or n == len(dcm_files):
-            pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
+            with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+                pickle.dump(UIDs, f)
+            with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+                pickle.dump(skipped, f)
+            print('anonymized {} samples, exiting.'.format(n), flush=True)
             return
 
-        pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-        pickle.dump(skipped, open(os.path.join(output_path, "skipped.pkl"), "wb"))
+        with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+            pickle.dump(UIDs, f)
+        with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+            pickle.dump(skipped, f)
 
 
 if __name__ == "__main__":

@@ -151,12 +151,17 @@ def dcm_anonymize(dcm_folders, output_path, stop=None):
             skipped.append((skip_file.AccessionNumber, skip_file.StudyInstanceUID))
             continue
         if n == stop or n == len(dcm_folders):
-            pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-            print('anonymized {} samples, exiting.'.format(stop), flush=True)
+            with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+                pickle.dump(UIDs, f)
+            with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+                pickle.dump(skipped, f)
+            print('anonymized {} samples, exiting.'.format(n), flush=True)
             return
 
-        pickle.dump(UIDs, open(os.path.join(output_path, "UIDs.pkl"), "wb"))
-        pickle.dump(skipped, open(os.path.join(output_path, "skipped.pkl"), "wb"))
+        with open(os.path.join(output_path, "UIDs.pkl"), "wb") as f:
+            pickle.dump(UIDs, f)
+        with open(os.path.join(output_path, "skipped.pkl"), "wb") as f:
+            pickle.dump(skipped, f)
 
 
 if __name__ == "__main__":
